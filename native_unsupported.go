@@ -3,52 +3,51 @@
 package webviewsurface
 
 import (
+	"fmt"
+	"runtime"
 	"unsafe"
-
-	"github.com/soksak/soksak-core/core/i18n"
 )
 
-// This platform has no native webview driver, and it says so by name.
+// This platform has no native web view driver, and every call says so by name.
 //
-// An empty implementation that answered nil would report a navigation as done
-// and leave a blank pane, which reads as a broken unit rather than a platform
-// this build does not cover yet. The sentence reaches a person — someone opened
-// a webview tab — so it comes from a key.
+// An empty implementation answering nil would report a navigation as done and leave a blank pane,
+// which reads as a broken unit rather than as a platform this build does not cover yet.
+//
+// The sentence is this service's own words rather than a key in an application's message registry.
+// A unit states the fact — which target, which operation — and the application that embeds it words
+// that for a person, because the wording is the application's and a unit reaching into one would
+// only ever work inside that one.
 type appKitWebviewDriver struct{}
 
-func init() {
-	i18n.Declare(map[string]i18n.Sentence{
-		"webview.native.unsupported": {
-			EN: "this platform has no native webview in this build",
-			KO: "이 빌드에는 이 플랫폼용 네이티브 브라우저가 없습니다",
-		},
-	})
+func unsupported(operation string) error {
+	return fmt.Errorf("webview surface: %s is not implemented on %s in this build — this target has "+
+		"no native web view driver", operation, runtime.GOOS)
 }
 
 func (appKitWebviewDriver) apply(_ unsafe.Pointer, _ []nativeOperation) ([]nativeResult, error) {
-	return nil, i18n.Errorf("webview.native.unsupported", nil)
+	return nil, unsupported("applying a surface inventory")
 }
 
 func (appKitWebviewDriver) navigate(_ unsafe.Pointer, _ string) error {
-	return i18n.Errorf("webview.native.unsupported", nil)
+	return unsupported("navigating")
 }
 
 func (appKitWebviewDriver) history(_ unsafe.Pointer, _ int) error {
-	return i18n.Errorf("webview.native.unsupported", nil)
+	return unsupported("stepping the back-forward list")
 }
 
 func (appKitWebviewDriver) reload(_ unsafe.Pointer) error {
-	return i18n.Errorf("webview.native.unsupported", nil)
+	return unsupported("reloading")
 }
 
 func (appKitWebviewDriver) stop(_ unsafe.Pointer) error {
-	return i18n.Errorf("webview.native.unsupported", nil)
+	return unsupported("stopping a load")
 }
 
 func (appKitWebviewDriver) pageState(_ unsafe.Pointer) (pageState, error) {
-	return pageState{}, i18n.Errorf("webview.native.unsupported", nil)
+	return pageState{}, unsupported("reading the page state")
 }
 
 func (appKitWebviewDriver) snapshot(_ unsafe.Pointer) ([]byte, error) {
-	return nil, i18n.Errorf("webview.native.unsupported", nil)
+	return nil, unsupported("taking a snapshot")
 }

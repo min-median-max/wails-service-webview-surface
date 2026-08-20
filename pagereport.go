@@ -4,7 +4,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/soksak/soksak-core/core/contentview"
+	contentview "github.com/soksak/soksak-contract-contentview"
 )
 
 // pageReport is one moment of what a surface's page is doing.
