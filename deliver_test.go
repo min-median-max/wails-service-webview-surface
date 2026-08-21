@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
-	compositor "github.com/soksak/wails-service-native-compositor"
+	compositor "github.com/soksak-ai/wails-service-native-compositor"
 )
 
 // The five verbs a person expects of a webview, and what the surface answers about itself.

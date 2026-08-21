@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	contentview "github.com/soksak/soksak-contract-contentview"
+	contentview "github.com/soksak-ai/soksak-contract-contentview"
 )
 
 type recordedEvent struct {

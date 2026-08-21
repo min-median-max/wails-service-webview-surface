@@ -4,7 +4,7 @@ import (
 	"testing"
 	"unsafe"
 
-	contentview "github.com/soksak/soksak-contract-contentview"
+	contentview "github.com/soksak-ai/soksak-contract-contentview"
 )
 
 // Where the pointer landed, reported as the fact the core already names.
