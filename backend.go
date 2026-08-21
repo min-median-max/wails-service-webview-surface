@@ -109,6 +109,9 @@ func (backend *Backend) Apply(window unsafe.Pointer, snapshot compositor.Snapsho
 	// the compositor answers by name.
 	noteWindow(window, snapshot.Window)
 	operations := planNativeBatch(backend.owners, snapshot)
+	if len(operations) == 0 {
+		return []compositor.AppliedSurface{}, nil
+	}
 	results, err := backend.driver.apply(window, operations)
 	if err != nil {
 		return nil, err

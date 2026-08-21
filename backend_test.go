@@ -70,6 +70,25 @@ func TestEmptySnapshotRemovesEveryNativeWebviewOwner(t *testing.T) {
 	}
 }
 
+func TestEmptyInventoryDoesNotRequireAPlatformDriver(t *testing.T) {
+	driver := &recordingDriver{}
+	backend := newBackend(driver)
+	window := byte(1)
+
+	applied, err := backend.Apply(unsafe.Pointer(&window), compositor.Snapshot{
+		Window: "main", Sequence: 1,
+	})
+	if err != nil {
+		t.Fatalf("apply empty inventory: %v", err)
+	}
+	if len(applied) != 0 {
+		t.Fatalf("empty inventory applied %d surfaces", len(applied))
+	}
+	if driver.calls != 0 {
+		t.Fatalf("empty inventory called the native driver %d times", driver.calls)
+	}
+}
+
 func TestWebviewBackendOwnsWKWebViewInventoryAndCommands(t *testing.T) {
 	driver := &recordingDriver{}
 	backend := newBackend(driver)
