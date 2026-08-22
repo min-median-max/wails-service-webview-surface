@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
-	compositor "github.com/soksak-ai/wails-service-native-compositor"
+	compositor "github.com/min-median-max/wails-service-native-compositor"
 )
 
 type recordingDriver struct {
