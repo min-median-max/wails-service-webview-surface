@@ -26,3 +26,13 @@ permission; the code was one of them's by where the file sat and by nothing else
   compilation unit of its own; cgo keeps only `#cgo` directives and the include (NATIVE-LAYER N2).
 - `native_unsupported.go` — every other target fails by name rather than leaving a blank pane.
 - `pagereport.go` — url, title, loading and progress, as the view reports them.
+
+## Verification
+
+```sh
+make verify
+```
+
+`go.mod` is the exact Go owner. This repository verifies its public Backend implementation and
+native driver boundary. The compositor verifies inventory sequencing, while the product repository
+verifies the real multi-service window composition.
