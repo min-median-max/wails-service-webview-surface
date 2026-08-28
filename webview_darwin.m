@@ -414,9 +414,10 @@ int snapshotWebview(void *native, void **png, int *length) {
     dispatch_block_t block = ^{
         WKWebView *view = (WKWebView *)native;
         WKSnapshotConfiguration *config = [[WKSnapshotConfiguration alloc] init];
-        // The whole view. A rect of zero size means the visible region, which is the same thing
-        // here and is what the API takes as "unset".
+        // CGRectNull leaves the capture rect unset, so WebKit captures the whole view bounds.
+        // Include pending WebContent updates so a host capture cannot park a stale blank frame.
         config.rect = CGRectNull;
+        config.afterScreenUpdates = YES;
         [view takeSnapshotWithConfiguration:config completionHandler:^(NSImage *image, NSError *error) {
             if (image == nil || error != nil) {
                 status = 2;

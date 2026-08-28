@@ -36,3 +36,8 @@ make verify
 `go.mod` is the exact Go owner. This repository verifies its public Backend implementation and
 native driver boundary. The compositor verifies inventory sequencing, while the product repository
 verifies the real multi-service window composition.
+
+On Darwin, a surface picture captures the complete `WKWebView` bounds and includes pending
+WebContent updates. The picture is therefore the current native pixel replacement used while the
+host temporarily hides a live surface for document capture; returning an earlier blank frame is a
+driver contract failure.
