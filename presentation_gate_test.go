@@ -68,8 +68,10 @@ func TestNativeDimUsesOneBlackBackingInsteadOfTheDimmedDocument(t *testing.T) {
 	}
 	source := string(body)
 	create := cFunctionBody(t, source, "int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, WebviewResult *results, int *resultCount) {")
-	if !strings.Contains(create, "host.layer.backgroundColor = NSColor.blackColor.CGColor") {
-		t.Error("the native surface host has no opaque black backing for deterministic dim composition")
+	if !strings.Contains(create, "NSView *backing = [[NSView alloc] initWithFrame:host.bounds]") ||
+		!strings.Contains(create, "backing.layer.backgroundColor = NSColor.blackColor.CGColor") ||
+		!strings.Contains(create, "[host addSubview:backing]") {
+		t.Error("the native surface host has no explicit black sibling behind the remote webview layer")
 	}
 	if strings.Contains(create, "host.alphaValue = op.alpha") {
 		t.Error("host alpha blends the page with the already-dimmed document")

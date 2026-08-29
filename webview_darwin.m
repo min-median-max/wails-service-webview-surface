@@ -202,10 +202,6 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
             SoksakWebviewHost *host = [[SoksakWebviewHost alloc] initWithFrame:webviewRect(content, ops[i])];
             host.wantsLayer = YES;
-            // The document lighting plane cannot cover a native child view. Keep one opaque black
-            // backing in the native host and fade only the page content against it, so a declared
-            // dim has the same final luminance as the document's black veil.
-            host.layer.backgroundColor = NSColor.blackColor.CGColor;
             // Whether the web view can draw outside its host is a property of the box, so it is
             // settled where the box is made. Set on the interactive path alone until 2026-08-20, a
             // surface nobody had dragged was never clipped — and a box changes without a drag every
@@ -225,8 +221,17 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             view.autoresizingMask = NSViewNotSizable;
             view.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
             view.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
+            // WKWebView presents a remote layer. A background on its host layer is not a guaranteed
+            // compositing input for that remote content, so the dim backing is an explicit AppKit
+            // sibling. It fills the host while WebKit deliberately keeps its last settled frame.
+            NSView *backing = [[NSView alloc] initWithFrame:host.bounds];
+            backing.wantsLayer = YES;
+            backing.layer.backgroundColor = NSColor.blackColor.CGColor;
+            backing.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
             host.webview = view;
             host.settledFrame = host.frame;
+            [host addSubview:backing];
+            [backing release];
             [host addSubview:view];
             ops[i].native = view;
         }
