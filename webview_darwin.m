@@ -202,6 +202,10 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
             SoksakWebviewHost *host = [[SoksakWebviewHost alloc] initWithFrame:webviewRect(content, ops[i])];
             host.wantsLayer = YES;
+            // The document lighting plane cannot cover a native child view. Keep one opaque black
+            // backing in the native host and fade only the page content against it, so a declared
+            // dim has the same final luminance as the document's black veil.
+            host.layer.backgroundColor = NSColor.blackColor.CGColor;
             // Whether the web view can draw outside its host is a property of the box, so it is
             // settled where the box is made. Set on the interactive path alone until 2026-08-20, a
             // surface nobody had dragged was never clipped — and a box changes without a drag every
@@ -270,7 +274,7 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             if (!placed) { status = 4; break; }
             BOOL hide = op.visible == 0;
             if (host.hidden != hide) host.hidden = hide;
-            if (host.alphaValue != op.alpha) host.alphaValue = op.alpha;
+            if (view.alphaValue != op.alpha) view.alphaValue = op.alpha;
             if (op.action == 1 && op.surfaceID != NULL) watchWebviewPage(view, op.surfaceID);
             if ((op.action == 1 || op.navigate != 0) && op.url != NULL) {
                 NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:op.url]];

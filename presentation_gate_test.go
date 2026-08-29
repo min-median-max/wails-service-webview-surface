@@ -57,6 +57,28 @@ func TestInteractivePresentationIsADifference(t *testing.T) {
 	}
 }
 
+// Dimming a native surface must produce the same final luminance as the document lighting plane.
+// The webview is above that plane, so fading its host blends the page with an already-dimmed DOM
+// placeholder and makes the two media disagree. The host owns an opaque black backing and only the
+// page content fades against it.
+func TestNativeDimUsesOneBlackBackingInsteadOfTheDimmedDocument(t *testing.T) {
+	body, err := os.ReadFile("webview_darwin.m")
+	if err != nil {
+		t.Fatalf("reading the driver: %v", err)
+	}
+	source := string(body)
+	create := cFunctionBody(t, source, "int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, WebviewResult *results, int *resultCount) {")
+	if !strings.Contains(create, "host.layer.backgroundColor = NSColor.blackColor.CGColor") {
+		t.Error("the native surface host has no opaque black backing for deterministic dim composition")
+	}
+	if strings.Contains(create, "host.alphaValue = op.alpha") {
+		t.Error("host alpha blends the page with the already-dimmed document")
+	}
+	if !strings.Contains(create, "view.alphaValue = op.alpha") {
+		t.Error("the page content does not receive the declared native alpha")
+	}
+}
+
 // statements is the body with comments, whitespace and line breaks removed — what the code does,
 // with nothing that only says why.
 func statements(body string) string {
