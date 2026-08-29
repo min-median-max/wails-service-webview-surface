@@ -58,26 +58,29 @@ func TestInteractivePresentationIsADifference(t *testing.T) {
 }
 
 // Dimming a native surface must produce the same final luminance as the document lighting plane.
-// The webview is above that plane, so fading its host blends the page with an already-dimmed DOM
-// placeholder and makes the two media disagree. The host owns an opaque black backing and only the
-// page content fades against it.
-func TestNativeDimUsesOneBlackBackingInsteadOfTheDimmedDocument(t *testing.T) {
+// The webview is above that plane, so fading it blends the page with an already-dimmed DOM
+// placeholder and makes the two media disagree. A pointer-transparent black veil above the page
+// applies the same operation as the document lighting plane.
+func TestNativeDimUsesOneVeilInsteadOfTheDimmedDocument(t *testing.T) {
 	body, err := os.ReadFile("webview_darwin.m")
 	if err != nil {
 		t.Fatalf("reading the driver: %v", err)
 	}
 	source := string(body)
 	create := cFunctionBody(t, source, "int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, WebviewResult *results, int *resultCount) {")
-	if !strings.Contains(create, "NSView *backing = [[NSView alloc] initWithFrame:host.bounds]") ||
-		!strings.Contains(create, "backing.layer.backgroundColor = NSColor.blackColor.CGColor") ||
-		!strings.Contains(create, "[host addSubview:backing]") {
-		t.Error("the native surface host has no explicit black sibling behind the remote webview layer")
+	if !strings.Contains(source, "@interface SoksakDimOverlay : NSView") ||
+		!strings.Contains(source, "- (NSView *)hitTest:(NSPoint)point { return nil; }") {
+		t.Error("the native dim veil is not an explicit pointer-transparent view")
 	}
 	if strings.Contains(create, "host.alphaValue = op.alpha") {
 		t.Error("host alpha blends the page with the already-dimmed document")
 	}
-	if !strings.Contains(create, "view.alphaValue = op.alpha") {
-		t.Error("the page content does not receive the declared native alpha")
+	if strings.Contains(create, "view.alphaValue = op.alpha") {
+		t.Error("webview alpha blends the remote page layer with the already-dimmed document")
+	}
+	if !strings.Contains(create, "dimOverlay.alphaValue = 1.0 - op.alpha") ||
+		!strings.Contains(create, "[host addSubview:dimOverlay positioned:NSWindowAbove relativeTo:view]") {
+		t.Error("the declared dim is not painted once above the native page")
 	}
 }
 

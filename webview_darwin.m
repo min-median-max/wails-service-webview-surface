@@ -50,6 +50,15 @@
 
 @end
 
+// A native lighting veil is visual only. Returning nil lets AppKit continue hit testing to the
+// WKWebView below it, so matching the document lighting plane never changes input ownership.
+@interface SoksakDimOverlay : NSView
+@end
+
+@implementation SoksakDimOverlay
+- (NSView *)hitTest:(NSPoint)point { return nil; }
+@end
+
 // One AppKit-owned presentation layer around one WebKit-owned view.
 //
 // The host is the sole geometry owner and the WKWebView fills its local bounds. Both carry
@@ -57,6 +66,7 @@
 // contract without a second transform or clipping geometry path.
 @interface SoksakWebviewHost : NSView
 @property (assign) WKWebView *webview;
+@property (assign) SoksakDimOverlay *dimOverlay;
 @property NSRect settledFrame;
 @end
 
@@ -221,18 +231,17 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             view.autoresizingMask = NSViewNotSizable;
             view.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
             view.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
-            // WKWebView presents a remote layer. A background on its host layer is not a guaranteed
-            // compositing input for that remote content, so the dim backing is an explicit AppKit
-            // sibling. It fills the host while WebKit deliberately keeps its last settled frame.
-            NSView *backing = [[NSView alloc] initWithFrame:host.bounds];
-            backing.wantsLayer = YES;
-            backing.layer.backgroundColor = NSColor.blackColor.CGColor;
-            backing.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+            SoksakDimOverlay *dimOverlay = [[SoksakDimOverlay alloc] initWithFrame:host.bounds];
+            dimOverlay.wantsLayer = YES;
+            dimOverlay.layer.backgroundColor = NSColor.blackColor.CGColor;
+            dimOverlay.alphaValue = 0;
+            dimOverlay.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
             host.webview = view;
+            host.dimOverlay = dimOverlay;
             host.settledFrame = host.frame;
-            [host addSubview:backing];
-            [backing release];
             [host addSubview:view];
+            [host addSubview:dimOverlay positioned:NSWindowAbove relativeTo:view];
+            [dimOverlay release];
             ops[i].native = view;
         }
         if (status != 0) {
@@ -279,7 +288,9 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             if (!placed) { status = 4; break; }
             BOOL hide = op.visible == 0;
             if (host.hidden != hide) host.hidden = hide;
-            if (view.alphaValue != op.alpha) view.alphaValue = op.alpha;
+            SoksakDimOverlay *dimOverlay = host.dimOverlay;
+            if (dimOverlay == nil) { status = 4; break; }
+            if (dimOverlay.alphaValue != 1.0 - op.alpha) dimOverlay.alphaValue = 1.0 - op.alpha;
             if (op.action == 1 && op.surfaceID != NULL) watchWebviewPage(view, op.surfaceID);
             if ((op.action == 1 || op.navigate != 0) && op.url != NULL) {
                 NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:op.url]];
