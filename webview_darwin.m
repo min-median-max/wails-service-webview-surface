@@ -177,6 +177,7 @@ static BOOL presentWebviewInteractively(WKWebView *view, NSRect wanted) {
     // and the box WebKit laid out are two facts during a drag, and `SurfaceStatus` publishes both.
     // Written on both paths until 2026-08-20, they were one fact reported twice.
     if (!NSEqualRects(host.frame, wanted)) host.frame = wanted;
+    if (!NSEqualRects(host.dimOverlay.frame, wanted)) host.dimOverlay.frame = wanted;
     return YES;
 }
 
@@ -188,6 +189,7 @@ static BOOL settleWebviewFrame(WKWebView *view, NSRect wanted) {
     // where the page is laid out.
     if (!NSEqualRects(host.frame, wanted)) host.frame = wanted;
     if (!NSEqualRects(view.frame, host.bounds)) view.frame = host.bounds;
+    if (!NSEqualRects(host.dimOverlay.frame, wanted)) host.dimOverlay.frame = wanted;
     host.settledFrame = wanted;
     return YES;
 }
@@ -231,16 +233,16 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             view.autoresizingMask = NSViewNotSizable;
             view.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
             view.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
-            SoksakDimOverlay *dimOverlay = [[SoksakDimOverlay alloc] initWithFrame:view.bounds];
+            SoksakDimOverlay *dimOverlay = [[SoksakDimOverlay alloc] initWithFrame:host.frame];
             dimOverlay.wantsLayer = YES;
             dimOverlay.layer.backgroundColor = NSColor.blackColor.CGColor;
             dimOverlay.alphaValue = 0;
-            dimOverlay.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+            dimOverlay.autoresizingMask = NSViewNotSizable;
             host.webview = view;
             host.dimOverlay = dimOverlay;
             host.settledFrame = host.frame;
             [host addSubview:view];
-            [view addSubview:dimOverlay positioned:NSWindowAbove relativeTo:nil];
+            [content addSubview:dimOverlay];
             [dimOverlay release];
             ops[i].native = view;
         }
@@ -249,6 +251,7 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
                 if (ops[i].action != 1 || ops[i].native == NULL) continue;
                 WKWebView *view = (WKWebView *)ops[i].native;
                 SoksakWebviewHost *host = webviewHost(view);
+                [host.dimOverlay removeFromSuperview];
                 [view removeFromSuperview];
                 [view release];
                 [host release];
@@ -264,6 +267,7 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
                 if (host == nil) { status = 4; break; }
                 unwatchWebviewPage(view);
                 [view stopLoading];
+                [host.dimOverlay removeFromSuperview];
                 [view removeFromSuperview];
                 [view release];
                 [host removeFromSuperview];
@@ -291,6 +295,8 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             SoksakDimOverlay *dimOverlay = host.dimOverlay;
             if (dimOverlay == nil) { status = 4; break; }
             if (dimOverlay.alphaValue != 1.0 - op.alpha) dimOverlay.alphaValue = 1.0 - op.alpha;
+            BOOL hideDim = hide || op.alpha >= 1.0;
+            if (dimOverlay.hidden != hideDim) dimOverlay.hidden = hideDim;
             if (op.action == 1 && op.surfaceID != NULL) watchWebviewPage(view, op.surfaceID);
             if ((op.action == 1 || op.navigate != 0) && op.url != NULL) {
                 NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:op.url]];
@@ -312,28 +318,31 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
         //
         // The declared order is the order the operations arrive in, topmost last. It is compared
         // against what the window already holds, and nothing is touched when they agree.
-        NSMutableArray<SoksakWebviewHost *> *wanted = [NSMutableArray arrayWithCapacity:count];
+        NSMutableArray<NSView *> *wanted = [NSMutableArray arrayWithCapacity:count * 2];
         for (int i = 0; i < count; i++) {
             if (ops[i].action == 3) continue;
             SoksakWebviewHost *host = webviewHost((WKWebView *)ops[i].native);
             if (host == nil) { status = 4; break; }
             [wanted addObject:host];
+            SoksakDimOverlay *dimOverlay = host.dimOverlay;
+            if (dimOverlay == nil) { status = 4; break; }
+            [wanted addObject:dimOverlay];
         }
         if (status != 0) { [CATransaction commit]; return; }
         BOOL ordered = YES;
         NSUInteger at = 0;
         for (NSView *subview in content.subviews) {
-            if (![wanted containsObject:(SoksakWebviewHost *)subview]) continue;
+            if (![wanted containsObject:subview]) continue;
             if (at >= wanted.count || wanted[at] != subview) { ordered = NO; break; }
             at++;
         }
         if (at != wanted.count) ordered = NO;
-        for (SoksakWebviewHost *host in wanted) {
-            if (host.superview != content) { ordered = NO; break; }
+        for (NSView *view in wanted) {
+            if (view.superview != content) { ordered = NO; break; }
         }
         if (!ordered) {
-            for (SoksakWebviewHost *host in wanted) {
-                [content addSubview:host positioned:NSWindowAbove relativeTo:nil];
+            for (NSView *view in wanted) {
+                [content addSubview:view positioned:NSWindowAbove relativeTo:nil];
             }
         }
 
