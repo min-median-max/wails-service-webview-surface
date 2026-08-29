@@ -79,7 +79,7 @@ func TestNativeDimUsesOneVeilInsteadOfTheDimmedDocument(t *testing.T) {
 		t.Error("webview alpha blends the remote page layer with the already-dimmed document")
 	}
 	if !strings.Contains(create, "dimOverlay.alphaValue = 1.0 - op.alpha") ||
-		!strings.Contains(create, "[host addSubview:dimOverlay positioned:NSWindowAbove relativeTo:view]") {
+		!strings.Contains(create, "[view addSubview:dimOverlay positioned:NSWindowAbove relativeTo:nil]") {
 		t.Error("the declared dim is not painted once above the native page")
 	}
 }

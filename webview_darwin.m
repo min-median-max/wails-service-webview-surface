@@ -231,7 +231,7 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             view.autoresizingMask = NSViewNotSizable;
             view.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
             view.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
-            SoksakDimOverlay *dimOverlay = [[SoksakDimOverlay alloc] initWithFrame:host.bounds];
+            SoksakDimOverlay *dimOverlay = [[SoksakDimOverlay alloc] initWithFrame:view.bounds];
             dimOverlay.wantsLayer = YES;
             dimOverlay.layer.backgroundColor = NSColor.blackColor.CGColor;
             dimOverlay.alphaValue = 0;
@@ -240,7 +240,7 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             host.dimOverlay = dimOverlay;
             host.settledFrame = host.frame;
             [host addSubview:view];
-            [host addSubview:dimOverlay positioned:NSWindowAbove relativeTo:view];
+            [view addSubview:dimOverlay positioned:NSWindowAbove relativeTo:nil];
             [dimOverlay release];
             ops[i].native = view;
         }
