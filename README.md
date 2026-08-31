@@ -41,3 +41,7 @@ On Darwin, a surface picture captures the complete `WKWebView` bounds and includ
 WebContent updates. The picture is therefore the current native pixel replacement used while the
 host temporarily hides a live surface for document capture; returning an earlier blank frame is a
 driver contract failure.
+
+Every geometry commit, including each interactive divider preview, applies one complete viewport:
+the host rectangle, `WKWebView` bounds, dim veil and reported settled frame change together. Moving
+only a clipping host is forbidden because it leaves page layout at the previous width until release.

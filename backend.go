@@ -33,14 +33,14 @@ type nativeOperation struct {
 	surface     compositor.Surface
 	native      unsafe.Pointer
 	navigate    bool
-	interactive bool
 }
 
 type nativeResult struct {
 	surface compositor.Surface
 	native  unsafe.Pointer
-	// settledFrame is the raw NSView frame. During an interactive phase surface.Frame is the
-	// transformed layer frame a person sees while this one stays at the last WebKit layout.
+	// settledFrame is the WKWebView viewport read after the complete host/content placement.
+	// It equals surface.Frame for every committed preview; exposing both lets the product verify
+	// that the page viewport did not remain at an earlier width behind a correctly moved host.
 	settledFrame              compositor.Frame
 	layerContentsRedrawPolicy int
 	layerContentsPlacement    int
@@ -296,14 +296,14 @@ func planNativeBatch(current map[string]nativeOwner, snapshot compositor.Snapsho
 		seen[surface.ID] = struct{}{}
 		owner, exists := current[surface.ID]
 		if !exists {
-			operations = append(operations, nativeOperation{action: nativeCreate, surface: surface, interactive: snapshot.Interactive})
+			operations = append(operations, nativeOperation{action: nativeCreate, surface: surface})
 		} else if owner.generation != surface.Generation {
 			operations = append(operations,
 				nativeOperation{action: nativeRemove, surface: compositor.Surface{ID: surface.ID, Generation: owner.generation}, native: owner.native},
-				nativeOperation{action: nativeCreate, surface: surface, interactive: snapshot.Interactive},
+				nativeOperation{action: nativeCreate, surface: surface},
 			)
 		} else {
-			operations = append(operations, nativeOperation{action: nativeUpdate, surface: surface, native: owner.native, navigate: !maps.Equal(owner.source, surface.Source), interactive: snapshot.Interactive})
+			operations = append(operations, nativeOperation{action: nativeUpdate, surface: surface, native: owner.native, navigate: !maps.Equal(owner.source, surface.Source)})
 		}
 	}
 	removed := make([]string, 0)

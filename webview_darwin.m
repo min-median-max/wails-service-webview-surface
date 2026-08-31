@@ -163,30 +163,12 @@ static NSRect webviewRect(NSView *content, WebviewOperation op) {
     return NSMakeRect(op.x, NSHeight(content.bounds) - op.y - op.height, op.width, op.height);
 }
 
-// During a person's drag the document owns a continuously changing box. One transaction applies
-// that box to the AppKit host and its WebKit content; redraw/placement policy prevents AppKit's
-// default cached image from being stretched while the content submits its new frame.
-static BOOL presentWebviewInteractively(WKWebView *view, NSRect wanted) {
+// One document geometry commit is one complete native viewport commit. Moving only the clipping
+// host leaves WKWebView at its previous width until mouse-up, so the border follows the pointer
+// while the page stays narrow. Apply host, content and veil in this one disabled-action transaction.
+static BOOL placeWebviewFrame(WKWebView *view, NSRect wanted) {
     SoksakWebviewHost *host = webviewHost(view);
     if (host == nil) return NO;
-    // Only the host moves. The web view keeps the frame WebKit last laid out at, so no frame of the
-    // gesture asks for a resize handshake with the content process; the host's layer places that
-    // content top-left and clips it, which is AppKit's own live-resize contract.
-    //
-    // settledFrame stays where it was, and that is the whole of what it means: the box a person sees
-    // and the box WebKit laid out are two facts during a drag, and `SurfaceStatus` publishes both.
-    // Written on both paths until 2026-08-20, they were one fact reported twice.
-    if (!NSEqualRects(host.frame, wanted)) host.frame = wanted;
-    if (!NSEqualRects(host.dimOverlay.frame, wanted)) host.dimOverlay.frame = wanted;
-    return YES;
-}
-
-static BOOL settleWebviewFrame(WKWebView *view, NSRect wanted) {
-    SoksakWebviewHost *host = webviewHost(view);
-    if (host == nil) return NO;
-    // The gesture is over, so the content is laid out at the box it will keep. This is the one
-    // frame that asks WebKit for a new layout, and settledFrame follows it because that is now
-    // where the page is laid out.
     if (!NSEqualRects(host.frame, wanted)) host.frame = wanted;
     if (!NSEqualRects(view.frame, host.bounds)) view.frame = host.bounds;
     if (!NSEqualRects(host.dimOverlay.frame, wanted)) host.dimOverlay.frame = wanted;
@@ -286,9 +268,7 @@ int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, Web
             // this page took part in.
             if (view.autoresizingMask != NSViewNotSizable) view.autoresizingMask = NSViewNotSizable;
             NSRect wanted = webviewRect(content, op);
-            BOOL placed = op.interactive != 0
-                ? presentWebviewInteractively(view, wanted)
-                : settleWebviewFrame(view, wanted);
+            BOOL placed = placeWebviewFrame(view, wanted);
             if (!placed) { status = 4; break; }
             BOOL hide = op.visible == 0;
             if (host.hidden != hide) host.hidden = hide;

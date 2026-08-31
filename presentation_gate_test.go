@@ -2,55 +2,46 @@ package webviewsurface
 
 import (
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 )
 
-// The interactive fact changes what is done, and the clip does not depend on history.
+// Every interactive preview applies the complete viewport rectangle.
 //
-// A snapshot carries `interactive` from the layout system's begin edge to its matching end edge.
-// It crosses the document's observer, the compositor's Go half, this backend and the C boundary,
-// and the observer keeps a queue of the edges so a begin and an end are never coalesced away. All
-// of that exists to reach one branch.
-//
-// Reviewed 2026-08-20: the two arms of that branch did the same thing. `presentWebviewInteractively`
-// and `settleWebviewFrame` both set the host's frame, fit the web view to the host's bounds and
-// record the settled rect — the same three statements in the same order. Whatever a drag gained
-// came from the host view, its redraw policy and the transaction around them, none of which asks
-// whether the phase is interactive. A fact carried through four layers to a branch with one
-// behaviour is a fact nothing depends on.
-//
-// The one difference was `masksToBounds`, and it was the wrong difference: set on the interactive
-// arm and nowhere else, a surface that is never dragged never has its host layer clipped. Whether
-// the web view can draw outside its host is a property of the box, not of whether a person has ever
-// dragged it — and a box changes without a drag every time a window is resized, a pane is split, or
-// a tab is maximised.
-//
-// Read from the source. The behaviour is in Objective-C on the main thread of a running window, and
-// what is asserted here is that the two paths are not the same text and that the clip is established
-// where the host is.
-func TestInteractivePresentationIsADifference(t *testing.T) {
+// Moving only the clipping host leaves WKWebView at its previous width until mouse-up. The panel
+// boundary then follows the pointer while the visible page viewport remains narrow. `Applied.Frame`
+// can still equal the declaration because it reports the host, so `Settled` must also advance on
+// every preview. One AppKit transaction sets the host, the WKWebView bounds, the dim veil and the
+// reported viewport before the next paint.
+func TestInteractivePresentationAppliesTheCompleteViewport(t *testing.T) {
 	body, err := os.ReadFile("webview_darwin.m")
 	if err != nil {
 		t.Fatalf("reading the driver: %v", err)
 	}
 	source := string(body)
 
-	interactive := cFunctionBody(t, source, "static BOOL presentWebviewInteractively(WKWebView *view, NSRect wanted) {")
-	settled := cFunctionBody(t, source, "static BOOL settleWebviewFrame(WKWebView *view, NSRect wanted) {")
-
-	if statements(interactive) == statements(settled) {
-		t.Error("presentWebviewInteractively and settleWebviewFrame do the same thing.\n" +
-			"`interactive` crosses the observer, the compositor, this backend and the C boundary to\n" +
-			"reach this branch. Give the interactive arm behaviour of its own, or take the fact out\n" +
-			"of all four layers.")
+	placement := cFunctionBody(t, source, "static BOOL placeWebviewFrame(WKWebView *view, NSRect wanted) {")
+	for _, statement := range []string{
+		"host.frame = wanted",
+		"view.frame = host.bounds",
+		"host.dimOverlay.frame = wanted",
+		"host.settledFrame = wanted",
+	} {
+		if !strings.Contains(placement, statement) {
+			t.Errorf("interactive preview does not apply %q", statement)
+		}
+	}
+	apply := cFunctionBody(t, source, "int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, WebviewResult *results, int *resultCount) {")
+	if !strings.Contains(apply, "placeWebviewFrame(view, wanted)") {
+		t.Error("the native batch does not apply the complete viewport placement")
+	}
+	if strings.Contains(apply, "op.interactive") {
+		t.Error("interactive preview still selects a host-only geometry branch")
 	}
 
-	// The clip belongs to the host, established once where the host is made. Left to the interactive
-	// arm, it arrives only for a surface that has been dragged.
-	create := cFunctionBody(t, source, "int applyWebviewBatch(void *windowPointer, WebviewOperation *ops, int count, WebviewResult *results, int *resultCount) {")
-	if !strings.Contains(create, "masksToBounds") {
+	// The clip belongs to the host and is established once where the host is made. A gesture-only
+	// placement branch would leave a surface that has never been dragged without this box rule.
+	if !strings.Contains(apply, "masksToBounds") {
 		t.Error("the host's layer is not clipped where the host is created.\n" +
 			"Whether the web view can draw outside its host is a property of the box. Set it beside\n" +
 			"wantsLayer and the redraw policy, so it holds for a surface no one has dragged.")
@@ -83,14 +74,6 @@ func TestNativeDimUsesOneVeilInsteadOfTheDimmedDocument(t *testing.T) {
 		!strings.Contains(create, "[wanted addObject:dimOverlay]") {
 		t.Error("the declared dim is not painted once above the native page")
 	}
-}
-
-// statements is the body with comments, whitespace and line breaks removed — what the code does,
-// with nothing that only says why.
-func statements(body string) string {
-	withoutBlock := regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(body, "")
-	withoutLine := regexp.MustCompile(`(?m)//.*$`).ReplaceAllString(withoutBlock, "")
-	return strings.Join(strings.Fields(withoutLine), " ")
 }
 
 // cFunctionBody is the text between a function's opening line and the closing brace in column one.

@@ -114,7 +114,7 @@ func TestWebviewBackendOwnsWKWebViewInventoryAndCommands(t *testing.T) {
 	}
 }
 
-func TestWebviewBackendCarriesInteractiveLayoutPolicyToTheNativeBatch(t *testing.T) {
+func TestWebviewBackendReportsInteractiveLayoutWithTheAppliedViewport(t *testing.T) {
 	driver := &recordingDriver{}
 	backend := newBackend(driver)
 	window := byte(1)
@@ -126,8 +126,8 @@ func TestWebviewBackendCarriesInteractiveLayoutPolicyToTheNativeBatch(t *testing
 	if _, err := backend.Apply(unsafe.Pointer(&window), snapshot); err != nil {
 		t.Fatalf("apply interactive inventory: %v", err)
 	}
-	if len(driver.batches) != 1 || len(driver.batches[0]) != 1 || !driver.batches[0][0].interactive {
-		t.Fatalf("interactive policy must reach the one native batch: %+v", driver.batches)
+	if len(driver.batches) != 1 || len(driver.batches[0]) != 1 {
+		t.Fatalf("interactive inventory must reach one native batch: %+v", driver.batches)
 	}
 	status := backend.Status()
 	if len(status) != 1 || !status[0].Interactive || status[0].SettledFrame != (compositor.Frame{X: 40, Y: 20, Width: 760, Height: 580}) ||

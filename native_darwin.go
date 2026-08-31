@@ -43,7 +43,7 @@ func (appKitWebviewDriver) apply(window unsafe.Pointer, operations []nativeOpera
 			ids[i] = C.CString(operation.surface.ID)
 		}
 		cOps[i] = C.WebviewOperation{
-			action: C.int(operation.action), native: operation.native, url: urls[i], surfaceID: ids[i], navigate: C.int(asInt(operation.navigate)), interactive: C.int(asInt(operation.interactive)),
+			action: C.int(operation.action), native: operation.native, url: urls[i], surfaceID: ids[i], navigate: C.int(asInt(operation.navigate)),
 			x: C.double(operation.surface.Frame.X), y: C.double(operation.surface.Frame.Y), width: C.double(operation.surface.Frame.Width), height: C.double(operation.surface.Frame.Height),
 			visible: C.int(asInt(operation.surface.Visible)), alpha: C.double(operation.surface.Alpha),
 		}

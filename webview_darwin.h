@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 // One entry of a batch. action is 1 create, 2 update, 3 remove.
-typedef struct { int action; void *native; const char *url; const char *surfaceID; int navigate; int interactive; double x,y,width,height; int visible; double alpha; } WebviewOperation;
+typedef struct { int action; void *native; const char *url; const char *surfaceID; int navigate; double x,y,width,height; int visible; double alpha; } WebviewOperation;
 
 // What the native layer read back after applying one entry. window is the NSWindow the view is in
 // after it was attached, read off the view rather than restated from the argument — a surface in the
